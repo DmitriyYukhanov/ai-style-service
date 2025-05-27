@@ -45,12 +45,20 @@ app.MapPost("/api/style", async (HttpRequest request) =>
 
     Console.WriteLine($"Original image size: {originalWidth}x{originalHeight}");
 
-    var targetSize = GetResizeDimensions(originalWidth, originalHeight, 1024, 1024);
+    // Optimize image size for faster processing
+    var targetSize = GetResizeDimensions(originalWidth, originalHeight, 768, 768); // Reduced from 1024 for speed
     
-    // Resize using ImageSharp
-    originalImage.Mutate(x => x.Resize(targetSize.Width, targetSize.Height));
-
-    Console.WriteLine($"Resized image size: {targetSize.Width}x{targetSize.Height}");
+    // Only resize if the image is larger than target
+    if (originalWidth > targetSize.Width || originalHeight > targetSize.Height)
+    {
+        originalImage.Mutate(x => x.Resize(targetSize.Width, targetSize.Height, KnownResamplers.Lanczos3));
+        Console.WriteLine($"Resized image size: {targetSize.Width}x{targetSize.Height}");
+    }
+    else
+    {
+        Console.WriteLine($"Image size unchanged: {originalWidth}x{originalHeight} (already optimal)");
+        targetSize = (originalWidth, originalHeight);
+    }
 
     byte[] imageBytes;
     using (var ms = new MemoryStream())
@@ -120,11 +128,15 @@ app.MapPost("/api/style", async (HttpRequest request) =>
         var predictionUrl = getUrlProperty.GetString();
         Console.WriteLine($"Prediction URL: {predictionUrl}");
 
-        // Poll for completion
+        // Poll for completion with exponential backoff
         string? outputUrl = null;
-        for (int i = 0; i < 60; i++) // Wait up to 60 seconds
+        int maxWaitTime = 180; // Increased to 3 minutes
+        int pollInterval = 500; // Start with 500ms
+        int maxPollInterval = 3000; // Max 3 seconds between polls
+        
+        for (int i = 0; i < maxWaitTime; i++)
         {
-            await Task.Delay(1000);
+            await Task.Delay(pollInterval);
             var pollResponse = await httpClient.GetAsync(predictionUrl);
             pollResponse.EnsureSuccessStatusCode();
             
@@ -132,7 +144,32 @@ app.MapPost("/api/style", async (HttpRequest request) =>
             using var pollDoc = await JsonDocument.ParseAsync(pollStream);
             
             var status = pollDoc.RootElement.GetProperty("status").GetString();
-            Console.WriteLine($"Status: {status}");
+            
+            // Log progress with more detail
+            if (pollDoc.RootElement.TryGetProperty("logs", out var logsProperty))
+            {
+                var logs = logsProperty.GetString();
+                if (!string.IsNullOrEmpty(logs))
+                {
+                    var lastLogLine = logs.Split('\n').LastOrDefault(l => !string.IsNullOrWhiteSpace(l));
+                    if (!string.IsNullOrEmpty(lastLogLine))
+                    {
+                        Console.WriteLine($"Status: {status} - {lastLogLine}");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Status: {status}");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine($"Status: {status}");
+                }
+            }
+            else
+            {
+                Console.WriteLine($"Status: {status}");
+            }
             
             if (status == "succeeded")
             {
@@ -152,11 +189,23 @@ app.MapPost("/api/style", async (HttpRequest request) =>
                 Console.WriteLine($"Prediction failed: {error}");
                 return Results.Problem($"Prediction failed: {error}");
             }
+            else if (status == "canceled")
+            {
+                Console.WriteLine("Prediction was canceled");
+                return Results.Problem("Prediction was canceled");
+            }
+            
+            // Exponential backoff: gradually increase poll interval
+            if (pollInterval < maxPollInterval)
+            {
+                pollInterval = Math.Min(pollInterval + 200, maxPollInterval);
+            }
         }
 
         if (outputUrl == null)
         {
-            return Results.Problem("Prediction timed out or failed to complete");
+            Console.WriteLine($"Prediction timed out after {maxWaitTime} seconds");
+            return Results.Problem($"Prediction timed out after {maxWaitTime} seconds. The model may be experiencing high demand.");
         }
 
         Console.WriteLine($"Output URL: {outputUrl}");
