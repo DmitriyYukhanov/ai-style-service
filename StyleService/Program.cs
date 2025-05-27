@@ -62,18 +62,26 @@ app.MapPost("/api/style", async (HttpRequest request) =>
     // Create data URI format that Replicate expects
     string imageDataUri = $"data:image/png;base64,{Convert.ToBase64String(imageBytes)}";
 
+    var inputObject = new Dictionary<string, object>
+    {
+        ["prompt"] = prompt,
+        ["image"] = imageDataUri,
+        ["prompt_strength"] = strength,
+        ["num_inference_steps"] = inference_steps,
+        ["guidance_scale"] = guidance_scale,
+        ["negative_prompt"] = negative_prompt
+    };
+
+    // Only add seed if it has a value
+    if (seed.HasValue)
+    {
+        inputObject["seed"] = seed.Value;
+    }
+
     var requestBody = new
     {
         version = "15a3689ee13b0d2616e98820eca31d4c3abcd36672df6afce5cb6feb1d66087d",
-        input = new { 
-            prompt = prompt,
-            image = imageDataUri,
-            prompt_strength = strength,
-            seed = seed,
-            num_inference_steps = inference_steps,
-            guidance_scale = guidance_scale,
-            negative_prompt = negative_prompt
-        }
+        input = inputObject
     };
 
     var jsonContent = JsonSerializer.Serialize(requestBody, new JsonSerializerOptions 
