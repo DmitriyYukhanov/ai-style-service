@@ -1,0 +1,22 @@
+{
+  "name": "com.armasker.ai-style-service-client",
+  "displayName": "AR Masker AI Style Service Client",
+  "version": "1.0.0",
+  "unity": "2021.3",
+  "description": "Unity client package for AR Masker AI Style Service. Provides easy integration for applying artistic styles to images using AI models via REST API.",
+  "keywords": [
+    "ai",
+    "style-transfer",
+    "image-processing",
+    "rest-api",
+    "ar-masker"
+  ],
+  "author": {
+    "name": "AR Masker",
+    "url": "https://github.com/DmitriyYukhanov"
+  },
+  "type": "library",
+  "dependencies": {
+    "com.unity.nuget.newtonsoft-json": "3.2.1"
+  }
+} 
