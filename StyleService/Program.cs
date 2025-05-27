@@ -1,11 +1,12 @@
-using System.Drawing;
-using System.Drawing.Drawing2D;
-using System.Drawing.Imaging;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Hosting;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Processing;
+using SixLabors.ImageSharp.Formats.Png;
+using SixLabors.ImageSharp.Formats.Jpeg;
 
 const string NEGATIVE_PROMPT = "blurry, low quality, low resolution, out of focus, bad anatomy, extra limbs, poorly drawn face, deformed eyes, unbalanced lighting, noisy, jpeg artifacts, double face, mutated hands, grainy, text, watermark";
 
@@ -38,21 +39,23 @@ app.MapPost("/api/style", async (HttpRequest request) =>
 
     Console.WriteLine($"Processing request - Prompt: {prompt}, Strength: {strength}, Seed: {seed}");
 
-    using var originalImage = Image.FromStream(file.OpenReadStream());
+    using var originalImage = Image.Load(file.OpenReadStream());
     int originalWidth = originalImage.Width;
     int originalHeight = originalImage.Height;
 
     Console.WriteLine($"Original image size: {originalWidth}x{originalHeight}");
 
-    var targetSize = GetResizeDimensions(originalWidth, originalHeight, 768, 768);
-    using var resized = ResizeImage(originalImage, targetSize.Width, targetSize.Height);
+    var targetSize = GetResizeDimensions(originalWidth, originalHeight, 1024, 1024);
+    
+    // Resize using ImageSharp
+    originalImage.Mutate(x => x.Resize(targetSize.Width, targetSize.Height));
 
     Console.WriteLine($"Resized image size: {targetSize.Width}x{targetSize.Height}");
 
     byte[] imageBytes;
     using (var ms = new MemoryStream())
     {
-        resized.Save(ms, ImageFormat.Png);
+        await originalImage.SaveAsPngAsync(ms);
         imageBytes = ms.ToArray();
     }
 
@@ -151,11 +154,13 @@ app.MapPost("/api/style", async (HttpRequest request) =>
         Console.WriteLine($"Output URL: {outputUrl}");
 
         var outputBytes = await httpClient.GetByteArrayAsync(outputUrl);
-        using var outputImage = Image.FromStream(new MemoryStream(outputBytes));
-        using var finalImage = ResizeImage(outputImage, originalWidth, originalHeight);
+        using var outputImage = Image.Load(outputBytes);
+        
+        // Resize back to original size
+        outputImage.Mutate(x => x.Resize(originalWidth, originalHeight));
 
         using var outStream = new MemoryStream();
-        finalImage.Save(outStream, ImageFormat.Jpeg);
+        await outputImage.SaveAsJpegAsync(outStream);
 
         Console.WriteLine("Successfully processed image");
         return Results.File(outStream.ToArray(), "image/jpeg");
@@ -169,18 +174,6 @@ app.MapPost("/api/style", async (HttpRequest request) =>
 });
 
 app.Run();
-
-static Image ResizeImage(Image image, int width, int height)
-{
-    var dest = new Bitmap(width, height);
-    dest.SetResolution(image.HorizontalResolution, image.VerticalResolution);
-    using var g = Graphics.FromImage(dest);
-    g.CompositingQuality = CompositingQuality.HighQuality;
-    g.InterpolationMode = InterpolationMode.HighQualityBicubic;
-    g.SmoothingMode = SmoothingMode.HighQuality;
-    g.DrawImage(image, 0, 0, width, height);
-    return dest;
-}
 
 static (int Width, int Height) GetResizeDimensions(int w, int h, int maxW, int maxH)
 {
