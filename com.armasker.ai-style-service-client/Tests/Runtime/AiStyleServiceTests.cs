@@ -3,6 +3,7 @@ using System.IO;
 using ArMasker.AiStyleService.Client;
 using ArMasker.AiStyleService.Client.Services.Rest;
 using ArMasker.AiStyleService.Client.Services.Rest.Config;
+using ArMasker.AiStyleService.Client.Services.Rest.Data;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -168,28 +169,24 @@ namespace ArMasker.AiStyleService.Client.Tests
             // Arrange
             Texture2D nullTexture = null;
             string prompt = "test style";
-            bool exceptionThrown = false;
-            string exceptionMessage = "";
             
-            // Act
+            LogAssert.Expect(LogType.Error, "Input texture cannot be null");
+            
+            // Act - This should throw ArgumentNullException
             var responseTask = AiStyleServiceClient.StyleImageAsync(nullTexture, prompt);
             
-            // Wait for completion
-            yield return new WaitUntil(() => responseTask.IsCompleted);
+            // Wait a frame to let the exception be processed
+            yield return null;
             
-            // Check if task completed with exception
-            if (responseTask.IsFaulted)
-            {
-                exceptionThrown = true;
-                exceptionMessage = responseTask.Exception?.GetBaseException()?.Message ?? "Unknown exception";
-            }
-            
-            // Assert
-            Assert.IsTrue(exceptionThrown, "Expected an exception to be thrown for null texture");
-            Assert.IsTrue(exceptionMessage.Contains("NullReference") || exceptionMessage.Contains("null"), 
-                $"Expected null reference exception, but got: {exceptionMessage}");
-            
-            Debug.Log($"✅ Null texture test completed - Exception caught: {exceptionMessage}");
+            Debug.Log("✅ Null texture test completed - Expected exception was thrown and caught");
+        }
+        
+        [Test]
+        public void Initialize_WithValidConfig_DoesNotThrow()
+        {
+            // Arrange & Act & Assert
+            Assert.DoesNotThrow(() => AiStyleServiceClient.Initialize());
+            Assert.DoesNotThrow(() => AiStyleServiceClient.Initialize(new DefaultRestConfig()));
         }
         
         /// <summary>

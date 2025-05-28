@@ -38,6 +38,12 @@ namespace ArMasker.AiStyleService.Client
             string negativePrompt = null, float strength = 0.5f, int inferenceSteps = 30, 
             float guidanceScale = 7.5f, int? seed = null)
         {
+            if (!inputTexture)
+            {
+                Debug.LogError("Input texture cannot be null");
+                return ApiResponse<TextureResponse>.FromError(ApiErrorKind.InvalidInput, "Input texture is null");
+            }
+            
             var request = new StyleImageRequest(new StyleImageParams(inputTexture, prompt, negativePrompt, 
                 strength, inferenceSteps, guidanceScale, seed));
             return await SendRequest(request);

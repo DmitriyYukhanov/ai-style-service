@@ -33,7 +33,8 @@
         /// <summary>
         /// Something else went wrong.
         /// </summary>
-        UnknownError
+        UnknownError,
+        InvalidInput
     }
 	
     /// <summary>
