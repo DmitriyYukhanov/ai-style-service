@@ -43,7 +43,7 @@ namespace ArMasker.AiStyleService.Client.Services.Rest.Requests.Abstract
     public abstract class BasicRequest<TRequest, TResult> : IRequest<TRequest, TResult>
         where TRequest : class where TResult : class
     {
-        [JsonIgnore] public virtual string UrlPart => FunctionName;
+        [JsonIgnore] public virtual string UrlPart => Config != null ? Config.BaseEndpoint + FunctionName : FunctionName;
         [JsonIgnore] public IRestConfig Config { get; private set; }
         [JsonIgnore] public virtual string AcceptContentType => "application/json";
         [JsonIgnore] public virtual Dictionary<string, string> Headers { get; protected set; }
