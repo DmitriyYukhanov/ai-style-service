@@ -13,15 +13,20 @@ namespace ArMasker.AiStyleService.Client.Tests
     public class AiStyleServiceTests
     {
         private Texture2D testTexture;
-        
+        private bool testTextureWasCreatedDynamically = false;
+
         [OneTimeSetUp]
         public void OneTimeSetUp()
         {
             // Initialize the client
             AiStyleServiceClient.Initialize(new DefaultRestConfig());
             
-            // Create a test texture (you can replace this with loading from Resources)
-            testTexture = CreateTestTexture();
+            testTexture = Resources.Load<Texture2D>("sample_image");
+
+            if (testTexture == null)
+            {
+                testTexture = CreateTestTexture();
+            }
             
             // Alternatively, load from Resources if you have a test image:
             // testTexture = Resources.Load<Texture2D>("TestImages/sample_image");
@@ -30,7 +35,7 @@ namespace ArMasker.AiStyleService.Client.Tests
         [OneTimeTearDown]
         public void OneTimeTearDown()
         {
-            if (testTexture != null)
+            if (testTexture != null && testTextureWasCreatedDynamically)
             {
                 Object.DestroyImmediate(testTexture);
             }
@@ -300,6 +305,7 @@ namespace ArMasker.AiStyleService.Client.Tests
             }
             
             texture.Apply();
+            testTextureWasCreatedDynamically = true;
             return texture;
         }
         
