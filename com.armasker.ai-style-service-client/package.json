@@ -1,15 +1,16 @@
 {
   "name": "com.armasker.ai-style-service-client",
   "displayName": "AR Masker AI Style Service Client",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "unity": "2021.3",
-  "description": "Unity client package for AR Masker AI Style Service. Provides easy integration for applying artistic styles to images using AI models via REST API.",
+  "description": "Unity client package for AR Masker AI Style Service. Provides easy integration for applying artistic styles to images using AI models via REST API. Now includes Flux model support for faster cartoon-style transformations.",
   "keywords": [
     "ai",
     "style-transfer",
     "image-processing",
     "rest-api",
-    "ar-masker"
+    "ar-masker",
+    "flux"
   ],
   "author": {
     "name": "AR Masker",

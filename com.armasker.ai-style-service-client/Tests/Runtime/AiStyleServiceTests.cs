@@ -77,6 +77,76 @@ namespace ArMasker.AiStyleService.Client.Tests
         }
         
         [UnityTest]
+        public IEnumerator StyleImageFluxAsync_WithBasicPrompt_ReturnsStyledTexture()
+        {
+            // Arrange
+            string prompt = "Make this a 90s cartoon";
+            string aspectRatio = "match_input_image";
+            
+            Debug.Log($"🧪 Testing Flux style transfer:");
+            Debug.Log($"   - prompt: {prompt}");
+            Debug.Log($"   - aspect_ratio: {aspectRatio}");
+            
+            // Act
+            var responseTask = AiStyleServiceClient.StyleImageFluxAsync(testTexture, prompt, aspectRatio);
+            
+            // Wait for completion
+            yield return new WaitUntil(() => responseTask.IsCompleted);
+            
+            var response = responseTask.Result;
+            
+            // Assert
+            Assert.IsNotNull(response, "Response should not be null");
+            Assert.IsTrue(response.Success, $"Request should succeed. Error: {response.Error?.ToString()}");
+            Assert.IsNotNull(response.Data, "Response data should not be null");
+            Assert.IsNotNull(response.Data.TextureData, "Texture data should not be null");
+            
+            // Verify texture properties
+            var resultTexture = response.Data.TextureData;
+            Assert.Greater(resultTexture.width, 0, "Result texture should have valid width");
+            Assert.Greater(resultTexture.height, 0, "Result texture should have valid height");
+            
+            // Save result to disk for manual verification
+            SaveTextureToFile(resultTexture, "test_result_flux_basic.jpg");
+            
+            Debug.Log($"✅ Flux style transfer test completed successfully!");
+            Debug.Log($"📊 Result texture size: {resultTexture.width}x{resultTexture.height}");
+            Debug.Log($"💾 Result saved to: {GetSaveFilePath("test_result_flux_basic.jpg")}");
+        }
+        
+        [UnityTest]
+        public IEnumerator StyleImageFluxAsync_WithDifferentAspectRatios_ReturnsStyledTextures()
+        {
+            // Test different aspect ratios
+            string[] aspectRatios = { "1:1", "9:16", "4:3" };
+            string prompt = "cyberpunk style";
+            
+            foreach (var aspectRatio in aspectRatios)
+            {
+                Debug.Log($"🧪 Testing Flux with aspect ratio: {aspectRatio}");
+                
+                // Act
+                var responseTask = AiStyleServiceClient.StyleImageFluxAsync(testTexture, prompt, aspectRatio);
+                
+                // Wait for completion
+                yield return new WaitUntil(() => responseTask.IsCompleted);
+                
+                var response = responseTask.Result;
+                
+                // Assert
+                Assert.IsNotNull(response, $"Response should not be null for aspect ratio {aspectRatio}");
+                Assert.IsTrue(response.Success, $"Request should succeed for aspect ratio {aspectRatio}. Error: {response.Error?.ToString()}");
+                Assert.IsNotNull(response.Data, $"Response data should not be null for aspect ratio {aspectRatio}");
+                Assert.IsNotNull(response.Data.TextureData, $"Texture data should not be null for aspect ratio {aspectRatio}");
+                
+                // Save result to disk for manual verification
+                SaveTextureToFile(response.Data.TextureData, $"test_result_flux_{aspectRatio.Replace(":", "_")}.jpg");
+                
+                Debug.Log($"✅ Flux test completed for aspect ratio {aspectRatio}!");
+            }
+        }
+        
+        [UnityTest]
         public IEnumerator StyleImageAsync_WithValidParameterRanges_ReturnsStyledTexture()
         {
             // Arrange - Test with parameters at the edge of valid ranges
@@ -179,6 +249,24 @@ namespace ArMasker.AiStyleService.Client.Tests
             yield return null;
             
             Debug.Log("✅ Null texture test completed - Expected exception was thrown and caught");
+        }
+        
+        [UnityTest]
+        public IEnumerator StyleImageFluxAsync_WithInvalidTexture_ReturnsError()
+        {
+            // Arrange
+            Texture2D nullTexture = null;
+            string prompt = "test style";
+            
+            LogAssert.Expect(LogType.Error, "Input texture cannot be null");
+            
+            // Act - This should return an error response
+            var responseTask = AiStyleServiceClient.StyleImageFluxAsync(nullTexture, prompt);
+            
+            // Wait a frame to let the exception be processed
+            yield return null;
+            
+            Debug.Log("✅ Null texture test for Flux completed - Expected exception was thrown and caught");
         }
         
         [Test]

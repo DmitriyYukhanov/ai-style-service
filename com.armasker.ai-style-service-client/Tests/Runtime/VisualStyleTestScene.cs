@@ -16,19 +16,27 @@ namespace ArMasker.AiStyleService.Client.Tests
         [SerializeField] private Texture2D inputTexture;
         [SerializeField] private string stylePrompt = "anime style";
         
-        [Header("Style Parameters")]
+        [Header("Style Transfer Type")]
+        [SerializeField] private bool useFluxModel = false;
+        
+        [Header("Standard Style Parameters")]
         [SerializeField] private string negativePrompt = "blurry, low quality";
         [SerializeField, Range(0f, 1f)] private float strength = 0.5f;
         [SerializeField, Range(1, 100)] private int inferenceSteps = 30;
         [SerializeField, Range(1f, 20f)] private float guidanceScale = 7.5f;
         [SerializeField] private int? seed = null;
         
+        [Header("Flux Style Parameters")]
+        [SerializeField] private string aspectRatio = "16:9";
+        
         [Header("UI Elements (Optional)")]
         [SerializeField] private RawImage inputImageDisplay;
         [SerializeField] private RawImage outputImageDisplay;
         [SerializeField] private Button processButton;
+        [SerializeField] private Button processFluxButton;
         [SerializeField] private Text statusText;
         [SerializeField] private Slider progressSlider;
+        [SerializeField] private Toggle fluxToggle;
         
         private bool isProcessing = false;
         
@@ -45,22 +53,42 @@ namespace ArMasker.AiStyleService.Client.Tests
             
             if (processButton != null)
             {
-                processButton.onClick.AddListener(() => StartCoroutine(ProcessStyleTransfer()));
+                processButton.onClick.AddListener(() => StartCoroutine(ProcessStyleTransfer(false)));
             }
             
-            UpdateStatus("Ready. Click 'Process' to start style transfer.");
+            if (processFluxButton != null)
+            {
+                processFluxButton.onClick.AddListener(() => StartCoroutine(ProcessStyleTransfer(true)));
+            }
+            
+            if (fluxToggle != null)
+            {
+                fluxToggle.isOn = useFluxModel;
+                fluxToggle.onValueChanged.AddListener(value => useFluxModel = value);
+            }
+            
+            UpdateStatus("Ready. Click 'Process' for standard style transfer or 'Process Flux' for Flux model.");
         }
         
-        [ContextMenu("Process Style Transfer")]
-        public void ProcessStyleTransferFromMenu()
+        [ContextMenu("Process Standard Style Transfer")]
+        public void ProcessStandardStyleTransferFromMenu()
         {
             if (!isProcessing)
             {
-                StartCoroutine(ProcessStyleTransfer());
+                StartCoroutine(ProcessStyleTransfer(false));
             }
         }
         
-        private IEnumerator ProcessStyleTransfer()
+        [ContextMenu("Process Flux Style Transfer")]
+        public void ProcessFluxStyleTransferFromMenu()
+        {
+            if (!isProcessing)
+            {
+                StartCoroutine(ProcessStyleTransfer(true));
+            }
+        }
+        
+        private IEnumerator ProcessStyleTransfer(bool useFlux)
         {
             if (isProcessing)
             {
@@ -76,48 +104,68 @@ namespace ArMasker.AiStyleService.Client.Tests
             }
             
             isProcessing = true;
-            UpdateStatus("🚀 Starting style transfer...");
+            string modelType = useFlux ? "Flux" : "Standard";
+            UpdateStatus($"🚀 Starting {modelType} style transfer...");
             SetProgress(0f);
             
             if (processButton != null)
                 processButton.interactable = false;
+            if (processFluxButton != null)
+                processFluxButton.interactable = false;
             
-            // Start the style transfer task
-            var responseTask = AiStyleServiceClient.StyleImageAsync(
-                inputTexture, 
-                stylePrompt, 
-                negativePrompt, 
-                strength, 
-                inferenceSteps, 
-                guidanceScale, 
-                seed
-            );
+            // Start the appropriate style transfer task
+            System.Threading.Tasks.Task<ArMasker.AiStyleService.Client.Services.Rest.ApiResponse<ArMasker.AiStyleService.Client.Services.Rest.Data.TextureResponse>> responseTask;
+            
+            if (useFlux)
+            {
+                responseTask = AiStyleServiceClient.StyleImageFluxAsync(
+                    inputTexture, 
+                    stylePrompt, 
+                    aspectRatio
+                );
+                Debug.Log($"🎨 Starting Flux style transfer with prompt: '{stylePrompt}', aspect ratio: '{aspectRatio}'");
+            }
+            else
+            {
+                responseTask = AiStyleServiceClient.StyleImageAsync(
+                    inputTexture, 
+                    stylePrompt, 
+                    negativePrompt, 
+                    strength, 
+                    inferenceSteps, 
+                    guidanceScale, 
+                    seed
+                );
+                Debug.Log($"🎨 Starting standard style transfer with prompt: '{stylePrompt}', strength: {strength}");
+            }
             
             // Wait for completion with progress tracking
             float elapsedTime = 0f;
-            float estimatedTime = 60f; // Estimate 60 seconds
+            float estimatedTime = useFlux ? 40f : 60f; // Flux is typically faster
             
             while (!responseTask.IsCompleted)
             {
                 elapsedTime += Time.deltaTime;
                 float progress = Mathf.Clamp01(elapsedTime / estimatedTime);
                 SetProgress(progress);
-                UpdateStatus($"🎨 Processing... {progress:P0} (Est. {estimatedTime - elapsedTime:F0}s remaining)");
+                UpdateStatus($"🎨 Processing {modelType}... {progress:P0} (Est. {estimatedTime - elapsedTime:F0}s remaining)");
                 yield return null;
             }
             
             SetProgress(1f);
             
-            // Handle the result outside of try-catch to avoid yield issues
-            yield return StartCoroutine(HandleStyleTransferResult(responseTask));
+            // Handle the result
+            yield return StartCoroutine(HandleStyleTransferResult(responseTask, modelType));
             
             // Cleanup
             isProcessing = false;
             if (processButton != null)
                 processButton.interactable = true;
+            if (processFluxButton != null)
+                processFluxButton.interactable = true;
         }
         
-        private IEnumerator HandleStyleTransferResult(System.Threading.Tasks.Task<ArMasker.AiStyleService.Client.Services.Rest.ApiResponse<ArMasker.AiStyleService.Client.Services.Rest.Data.TextureResponse>> responseTask)
+        private IEnumerator HandleStyleTransferResult(System.Threading.Tasks.Task<ArMasker.AiStyleService.Client.Services.Rest.ApiResponse<ArMasker.AiStyleService.Client.Services.Rest.Data.TextureResponse>> responseTask, string modelType)
         {
             try
             {
@@ -133,29 +181,37 @@ namespace ArMasker.AiStyleService.Client.Tests
                         outputImageDisplay.texture = resultTexture;
                     }
                     
-                    UpdateStatus($"✅ Style transfer completed! Result: {resultTexture.width}x{resultTexture.height}");
+                    UpdateStatus($"✅ {modelType} style transfer completed! Result: {resultTexture.width}x{resultTexture.height}");
                     
                     // Log success details
-                    Debug.Log($"✅ Style transfer successful!");
+                    Debug.Log($"✅ {modelType} style transfer successful!");
                     Debug.Log($"📊 Input: {inputTexture.width}x{inputTexture.height}");
                     Debug.Log($"📊 Output: {resultTexture.width}x{resultTexture.height}");
                     Debug.Log($"🎨 Style: {stylePrompt}");
-                    Debug.Log($"⚙️ Parameters: strength={strength}, steps={inferenceSteps}, guidance={guidanceScale}");
+                    
+                    if (modelType == "Standard")
+                    {
+                        Debug.Log($"⚙️ Parameters: strength={strength}, steps={inferenceSteps}, guidance={guidanceScale}");
+                    }
+                    else
+                    {
+                        Debug.Log($"⚙️ Parameters: aspect_ratio={aspectRatio}");
+                    }
                     
                     // Save to persistent data for inspection
-                    SaveResultToDisk(resultTexture);
+                    SaveResultToDisk(resultTexture, modelType);
                 }
                 else
                 {
                     // Error
                     string errorMessage = response.Error?.ToString() ?? "Unknown error";
-                    UpdateStatus($"❌ Error: {errorMessage}");
-                    Debug.LogError($"Style transfer failed: {errorMessage}");
+                    UpdateStatus($"❌ {modelType} Error: {errorMessage}");
+                    Debug.LogError($"{modelType} style transfer failed: {errorMessage}");
                 }
             }
             catch (System.Exception e)
             {
-                UpdateStatus($"❌ Exception: {e.Message}");
+                UpdateStatus($"❌ {modelType} Exception: {e.Message}");
                 Debug.LogException(e);
             }
             
@@ -179,20 +235,20 @@ namespace ArMasker.AiStyleService.Client.Tests
             }
         }
         
-        private void SaveResultToDisk(Texture2D texture)
+        private void SaveResultToDisk(Texture2D texture, string modelType)
         {
             try
             {
                 byte[] bytes = texture.EncodeToJPG(90);
-                string filename = $"visual_test_result_{System.DateTime.Now:yyyyMMdd_HHmmss}.jpg";
+                string filename = $"visual_test_result_{modelType.ToLower()}_{System.DateTime.Now:yyyyMMdd_HHmmss}.jpg";
                 string filePath = System.IO.Path.Combine(Application.persistentDataPath, filename);
                 System.IO.File.WriteAllBytes(filePath, bytes);
-                Debug.Log($"💾 Result saved to: {filePath}");
-                UpdateStatus($"💾 Result saved to disk: {filename}");
+                Debug.Log($"💾 {modelType} result saved to: {filePath}");
+                UpdateStatus($"💾 {modelType} result saved to disk: {filename}");
             }
             catch (System.Exception e)
             {
-                Debug.LogError($"Failed to save result: {e.Message}");
+                Debug.LogError($"Failed to save {modelType} result: {e.Message}");
             }
         }
         
@@ -202,6 +258,25 @@ namespace ArMasker.AiStyleService.Client.Tests
             strength = Mathf.Clamp01(strength);
             inferenceSteps = Mathf.Clamp(inferenceSteps, 1, 100);
             guidanceScale = Mathf.Clamp(guidanceScale, 1f, 20f);
+            
+            // Validate aspect ratio format
+            if (!string.IsNullOrEmpty(aspectRatio) && !IsValidAspectRatio(aspectRatio))
+            {
+                Debug.LogWarning($"Invalid aspect ratio format: '{aspectRatio}'. Using default '16:9'");
+                aspectRatio = "16:9";
+            }
+        }
+        
+        private bool IsValidAspectRatio(string ratio)
+        {
+            if (string.IsNullOrEmpty(ratio))
+                return false;
+
+            var parts = ratio.Split(':');
+            if (parts.Length != 2)
+                return false;
+
+            return int.TryParse(parts[0], out _) && int.TryParse(parts[1], out _);
         }
     }
 } 

@@ -49,6 +49,26 @@ namespace ArMasker.AiStyleService.Client
             return await SendRequest(request);
         }
         
+        /// <summary>
+        /// Apply artistic style using Flux model with aspect ratio control
+        /// </summary>
+        /// <param name="inputTexture">The texture to style</param>
+        /// <param name="prompt">Style description (e.g., "Make this a 90s cartoon")</param>
+        /// <param name="aspectRatio">Output aspect ratio (e.g., "16:9", "1:1", "9:16", "4:3", "3:4") or "match_input_image" to match the input image aspect ratio</param>
+        /// <returns>Full API response with texture and metadata</returns>
+        public static async Task<ApiResponse<TextureResponse>> StyleImageFluxAsync(Texture2D inputTexture, string prompt,
+            string aspectRatio = "match_input_image")
+        {
+            if (!inputTexture)
+            {
+                Debug.LogError("Input texture cannot be null");
+                return ApiResponse<TextureResponse>.FromError(ApiErrorKind.InvalidInput, "Input texture is null");
+            }
+            
+            var request = new FluxStyleRequest(new FluxStyleParams(inputTexture, prompt, aspectRatio));
+            return await SendRequest(request);
+        }
+        
         private static async Task<ApiResponse<TextureResponse>> SendRequest(StyleImageRequest request)
         {
             if (client == null)
@@ -62,6 +82,24 @@ namespace ArMasker.AiStyleService.Client
             if (!result.Success)
             {
                 Debug.LogError($"Style transfer failed: {result.Error?.ToString()}");
+            }
+            
+            return result;
+        }
+        
+        private static async Task<ApiResponse<TextureResponse>> SendRequest(FluxStyleRequest request)
+        {
+            if (client == null)
+            {
+                Debug.LogError("AiStyleServiceClient not initialized. Call Initialize() first.");
+                return ApiResponse<TextureResponse>.FromError(ApiErrorKind.UnknownError, "Client not initialized");
+            }
+            
+            var result = await client.Send<FluxStyleParams, TextureResponse>(request);
+            
+            if (!result.Success)
+            {
+                Debug.LogError($"Flux style transfer failed: {result.Error?.ToString()}");
             }
             
             return result;
