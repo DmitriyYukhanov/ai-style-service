@@ -43,7 +43,7 @@ namespace ArMasker.AiStyleService.Client.Services.Rest.Requests
             try
             {
                 textureBytes = RequestBody.InputTexture.EncodeToPNG();
-                Debug.Log($"📷 Encoded texture: {RequestBody.InputTexture.width}x{RequestBody.InputTexture.height}, {textureBytes.Length} bytes");
+                Debug.Log($"AI Input Texture: {RequestBody.InputTexture.width}x{RequestBody.InputTexture.height}, {textureBytes.Length} bytes,\n{RequestBody.InputTexture.name}");
             }
             catch (System.Exception ex)
             {
@@ -67,14 +67,12 @@ namespace ArMasker.AiStyleService.Client.Services.Rest.Requests
                 form.AddField("seed", RequestBody.Seed.Value.ToString(CultureInfo.InvariantCulture));
                 
             // Debug logging to verify values
-            Debug.Log($"📝 Form data being sent:");
-            Debug.Log($"   - prompt: '{RequestBody.Prompt}'");
-            Debug.Log($"   - negative_prompt: '{RequestBody.NegativePrompt ?? "null"}'");
-            Debug.Log($"   - strength: {RequestBody.Strength.ToString("F2", CultureInfo.InvariantCulture)}");
-            Debug.Log($"   - inference_steps: {RequestBody.InferenceSteps}");
-            Debug.Log($"   - guidance_scale: {RequestBody.GuidanceScale.ToString("F1", CultureInfo.InvariantCulture)}");
-            Debug.Log($"   - seed: {(RequestBody.Seed?.ToString() ?? "null")}");
-            Debug.Log($"   - file size: {textureBytes.Length} bytes");
+            Debug.Log($"prompt:\n'{RequestBody.Prompt}'");
+            Debug.Log($"negative_prompt:\n'{RequestBody.NegativePrompt ?? "null"}'");
+            Debug.Log($"strength: {RequestBody.Strength.ToString("F2", CultureInfo.InvariantCulture)}");
+            Debug.Log($"inference_steps: {RequestBody.InferenceSteps}");
+            Debug.Log($"guidance_scale: {RequestBody.GuidanceScale.ToString("F1", CultureInfo.InvariantCulture)}");
+            Debug.Log($"seed: {(RequestBody.Seed?.ToString() ?? "null")}");
         }
     }
 }

@@ -43,8 +43,7 @@ namespace ArMasker.AiStyleService.Client.Services.Rest
 						multipartRequest.AddFormData(form);
 						webRequest = UnityWebRequest.Post(url, form);
 						
-						Debug.Log($"📤 Sending multipart request to: {url}");
-						Debug.Log($"📤 Form fields count: {form.headers.Count}");
+						Debug.Log($"Form fields count: {form.headers.Count}. Sending multipart request to:\n{url}");
 					}
 					else
 					{
@@ -53,8 +52,8 @@ namespace ArMasker.AiStyleService.Client.Services.Rest
 							? UnityWebRequest.Post(url, postBody, "application/json")
 							: UnityWebRequest.Get(url);
 						
-						Debug.Log($"📤 Sending JSON request to: {url}");
-						Debug.Log($"📤 Request body length: {postBody?.Length ?? 0}");
+						Debug.Log($"Sending JSON request to: {url}");
+						Debug.Log($"Request body length: {postBody?.Length ?? 0}");
 					}
 
 #if DEBUG
@@ -119,7 +118,7 @@ namespace ArMasker.AiStyleService.Client.Services.Rest
 					string contentType = webRequest.GetResponseHeader("Content-Type") ?? "unknown";
 					long contentLength = long.TryParse(webRequest.GetResponseHeader("Content-Length"), out var length) ? length : 0;
 					
-					Debug.Log($"Response info - Status: {statusCode}, Content-Type: {contentType}, Content-Length: {contentLength}");
+					Debug.Log($"Response info - Status: {statusCode}, Content-Type: {contentType},\nContent-Length: {contentLength} bytes");
 					
 					// Handle binary response (images) - specifically for TextureResponse
 					if (typeof(TU) == typeof(TextureResponse) || request.AcceptContentType.Contains("image"))
@@ -137,7 +136,6 @@ namespace ArMasker.AiStyleService.Client.Services.Rest
 							{
 								// Get raw bytes instead of using DownloadHandlerTexture.GetContent()
 								byte[] imageBytes = webRequest.downloadHandler.data;
-								Debug.Log($"📷 Received image data: {imageBytes.Length} bytes");
 								
 								// Save raw response for debugging (optional)
 								#if DEBUG
@@ -145,7 +143,7 @@ namespace ArMasker.AiStyleService.Client.Services.Rest
 								{
 									string debugPath = System.IO.Path.Combine(Application.persistentDataPath, $"debug_response_{System.DateTime.Now:yyyyMMdd_HHmmss}.jpg");
 									System.IO.File.WriteAllBytes(debugPath, imageBytes);
-									Debug.Log($"🔍 Raw response saved to: {debugPath}");
+									Debug.Log($"Raw response saved to:\n{debugPath}");
 								}
 								catch (System.Exception debugEx)
 								{
@@ -166,7 +164,7 @@ namespace ArMasker.AiStyleService.Client.Services.Rest
 										"Failed to load image data into texture", statusCode: statusCode);
 								}
 								
-								Debug.Log($"✅ Successfully created texture: {texture.width}x{texture.height}");
+								Debug.Log($"AI Texture Created: {texture.width}x{texture.height}");
 								webRequest.Dispose();
 								
 								// Create TextureResponse object
